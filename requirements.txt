@@ -8,3 +8,7 @@ whitenoise==6.5.0
 requests==2.31.0
 celery==5.3.4
 django-celery-beat==2.5.0
+
+# Setuptools provides `pkg_resources`, which is required by some third‑party
+# packages such as Django REST Framework for distribution metadata lookup.
+setuptools>=58.0.0
