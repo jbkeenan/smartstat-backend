@@ -1,0 +1,57 @@
+services:
+  # Django web service
+  - type: web
+    name: smartstatback
+    env: python
+    region: oregon
+    buildCommand: |
+      pip install --no-cache-dir -r requirements.txt
+      python manage.py collectstatic --noinput
+      python manage.py migrate --noinput
+    # Use the Django project's WSGI application.  The project is named
+    # `thermostat_project` after consolidation, so update the import path.
+    startCommand: gunicorn thermostat_project.wsgi:application
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: DJANGO_SETTINGS_MODULE
+        value: thermostat_project.settings
+      - key: SECRET_KEY
+        generate: true
+      - key: ALLOWED_HOSTS
+        value: "*.onrender.com"
+      # Include any additional variables defined in your `.env` file here.
+
+  # Celery worker service for asynchronous tasks
+  - type: worker
+    name: smartstatback-worker
+    env: python
+    region: oregon
+    buildCommand: pip install --no-cache-dir -r requirements.txt
+    # Point Celery at the Django project's settings module.  The app name is
+    # `thermostat_project` instead of `config`.
+    startCommand: celery -A thermostat_project worker --loglevel=info
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: thermostat_project.settings
+      - key: SECRET_KEY
+        fromService:
+          name: smartstatback
+          type: envVar
+          key: SECRET_KEY
+
+  # Celery beat scheduler for periodic tasks
+  - type: worker
+    name: smartstatback-beat
+    env: python
+    region: oregon
+    buildCommand: pip install --no-cache-dir -r requirements.txt
+    startCommand: celery -A thermostat_project beat --loglevel=info -S django
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: thermostat_project.settings
+      - key: SECRET_KEY
+        fromService:
+          name: smartstatback
+          type: envVar
+          key: SECRET_KEY
